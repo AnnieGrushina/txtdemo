@@ -1,0 +1,51 @@
+---
+version: '3.5'
+services:
+  textserver:
+    image: openjdk:11.0.6-jre-slim
+    volumes:
+      - ./TextSaver:/TextSaver
+    working_dir: /TextSaver
+    command: java -cp target/TextSaver-$TRG_VERSION.jar com.simpletextsaver.server.TextSaverServer
+    networks:
+      - text-network
+
+  toxiproxy:
+    image: shopify/toxiproxy:2.1.4
+    ports:
+      - 8474:8474
+    networks:
+      - text-network
+    # depends_on:
+    #   - textserver
+
+  toxiproxy-config:
+    image: curlimages/curl:7.69.0
+    volumes:
+      - ./toxiproxy-config.sh:/toxiproxy-config.sh
+    environment:
+      - SERVER_PORT
+      - PROXY_PORT
+    entrypoint: /toxiproxy-config.sh
+    networks:
+      - text-network
+    depends_on:
+      - toxiproxy
+
+  textclient:
+    image: openjdk:11.0.6-jre-slim
+    volumes:
+      - ./TextSaver:/TextSaver
+    working_dir: /TextSaver
+    command: java -cp target/TextSaver-$TRG_VERSION.jar com.simpletextsaver.client.TextSaverClient
+    environment:
+      - SERVER_URL=toxiproxy:$PROXY_PORT
+      # - SERVER_URL=textserver:$SERVER_PORT
+    networks:
+      - text-network
+    depends_on:
+      - toxiproxy
+
+networks:
+  text-network:
+    name: text-dev-network
